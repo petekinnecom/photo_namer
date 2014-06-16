@@ -1,12 +1,21 @@
 require 'rubygems'
 require 'pry'
 
+class FileThing
+  attr_reader :path, :filename, :extension
+  def initialize(path, filename, extension = nil)
+    @path = path
+    @filename = filename
+    @extension = extension || File.extname(filename)
+  end
+end
 
 class PhotoNamer
   FILES_REGEX = /\.jpg$|\.mp4$|\.3gp$/
   attr_reader :origin_dir, :destination_dir, :files
 
   UnNameableFileError = Class.new(StandardError)
+  SkippableFileError = Class.new(StandardError)
 
   def run
     find_files
@@ -19,6 +28,8 @@ class PhotoNamer
       rescue UnNameableFileError => e
         puts "\nCould not process #{origin_file}. Copying without renaming."
         `cp '#{origin_dir}/#{origin_file}' '#{destination_dir}/#{origin_file}'`
+      rescue SkippableFileError => e
+        puts "\nFile is already in destination #{origin_file}. Not copying"
       end
     end
   end
@@ -44,15 +55,22 @@ class PhotoNamer
 
       filename = "#{date} #{time}"
 
+      if File.exists?("#{destination_dir}/#{filename}#{File.extname(origin_file)}")
+        raise SkippableFileError if FileUtils.compare_file("#{origin_dir}/#{origin_file}", "#{destination_dir}/#{filename}#{File.extname(origin_file)}")
+      end
+
       counter = 2
       while File.exists?("#{destination_dir}/#{filename}#{File.extname(origin_file)}")
         if ! File.exists?("#{destination_dir}/#{filename} #{counter}#{File.extname(origin_file)}")
+          puts "\nFile: #{filename}#{File.extname(origin_file)} already exists.  Appending a counter."
           filename = "#{filename} #{counter}"
         end
         counter += 1
       end
 
       "#{filename}#{File.extname(origin_file)}"
+    rescue SkippableFileError => e
+      raise SkippableFileError
     rescue Exception => e
       raise UnNameableFileError.new('')
     end
