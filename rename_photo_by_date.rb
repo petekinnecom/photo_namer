@@ -1,53 +1,36 @@
 require 'rubygems'
 require 'pry'
 
-class FileThing
-  attr_reader :path, :filename, :extension
-  def initialize(path, filename, extension = nil)
-    @path = path
-    @filename = filename
-    @extension = extension || File.extname(filename)
-  end
-end
-
-class PhotoNamer
-  FILES_REGEX = /\.jpg$|\.mp4$|\.3gp$/
-  attr_reader :origin_dir, :destination_dir, :files
-
   UnNameableFileError = Class.new(StandardError)
   SkippableFileError = Class.new(StandardError)
 
-  def run
-    find_files
-    files.each do |origin_file|
-      begin
-        destination_file = create_new_file_name(origin_file)
+class PhotoFile
+  attr_reader :dir, :name, :extension, :name_with_extension, :full_path
 
-        `cp '#{origin_dir}/#{origin_file}' '#{destination_dir}/#{destination_file}'`
-        printf '.'
-      rescue UnNameableFileError => e
-        puts "\nCould not process #{origin_file}. Copying without renaming."
-        `cp '#{origin_dir}/#{origin_file}' '#{destination_dir}/#{origin_file}'`
-      rescue SkippableFileError => e
-        puts "\nFile is already in destination #{origin_file}. Not copying"
-      end
-    end
+  def initialize(dir, name, extension)
+    @dir = dir
+    @name = name
+    @extension = extension
+    @name_with_extension = "#{@name}#{@extension}"
+    @full_path = "#{@dir}/#{@name_with_extension}"
   end
 
-  private
-
-  def find_files
-    @origin_dir = ARGV[0]
-    @destination_dir = ARGV[1]
-    raise "Can't find photo dir" unless Dir.exists?(origin_dir)
-    raise "Please give a destination directory" unless destination_dir
-    raise "Please create destination destiny manually" unless Dir.exists?(destination_dir)
-    @files = Dir.entries(origin_dir).select {|f| f.match(FILES_REGEX) }
+  def to_s
+    self.name_with_extension
   end
 
-  def create_new_file_name(origin_file)
+  def destination_file(destination_dir)
     begin
-      exif_date_string = `exiftool -CreateDate #{origin_dir}/#{origin_file}`
+      # THIS IS A MESS
+      #
+      #
+      #
+      #
+      # CLEAN THIS UP
+      #
+      #
+      #
+      # handle errors not in here
       datetime = exif_date_string.sub(/Create Date\s+:/, '').chomp.strip
       date, time = datetime.split(/ /)
       date.gsub!(':', '-')
@@ -55,26 +38,81 @@ class PhotoNamer
 
       filename = "#{date} #{time}"
 
-      if File.exists?("#{destination_dir}/#{filename}#{File.extname(origin_file)}")
-        raise SkippableFileError if FileUtils.compare_file("#{origin_dir}/#{origin_file}", "#{destination_dir}/#{filename}#{File.extname(origin_file)}")
+      if File.exists?("#{destination_dir}/#{filename}#{self.extension}")
+        raise SkippableFileError if FileUtils.compare_file("#{self.full_path}", "#{destination_dir}/#{filename}#{self.extension}")
       end
 
       counter = 2
-      while File.exists?("#{destination_dir}/#{filename}#{File.extname(origin_file)}")
-        if ! File.exists?("#{destination_dir}/#{filename} #{counter}#{File.extname(origin_file)}")
-          puts "\nFile: #{filename}#{File.extname(origin_file)} already exists.  Appending a counter."
+      while File.exists?("#{destination_dir}/#{filename}#{self.extension}")
+        if ! File.exists?("#{destination_dir}/#{filename} #{counter}#{self.extension}")
+          puts "\nFile: #{filename}#{self.extension} already exists.  Appending a counter."
           filename = "#{filename} #{counter}"
         end
         counter += 1
       end
 
-      "#{filename}#{File.extname(origin_file)}"
+      "#{filename}#{self.extension}"
     rescue SkippableFileError => e
       raise SkippableFileError
     rescue Exception => e
       raise UnNameableFileError.new('')
     end
   end
+
+  def exif_date_string
+    `exiftool -CreateDate #{self.full_path}`
+  end
+end
+
+class PhotoNamer
+  FILES_REGEX = /\.jpg$|\.mp4$|\.3gp$/
+  attr_reader :origin_dir, :destination_dir, :photos
+
+
+  def run
+    find_photos
+
+    photos.each do |origin_photo|
+      begin
+        destination_file = origin_photo.destination_file(destination_dir)
+        copy(origin_photo.full_path, "#{destination_dir}/#{destination_file}")
+        printf '.'
+      rescue UnNameableFileError => e
+        puts "\nCould not process #{origin_photo}. Copying without renaming."
+        copy(origin_photo.full_path, "#{destination_dir}/#{origin_photo.name_with_extension}")
+      rescue SkippableFileError => e
+        puts "\nFile is already in destination #{origin_photo}. Not copying"
+      end
+    end
+  end
+
+  def copy(original_file, destination_file)
+    if File.exists?(destination_file) && FileUtils.compare_file(original_file, destination_file)
+      puts "\nFile is already in destination. Not copying : #{original_file}"
+    else
+      `cp '#{original_file}' '#{destination_file}'`
+      printf '.'
+    end
+  end
+
+  private
+
+  def find_photos
+    @origin_dir = ARGV[0]
+    @destination_dir = ARGV[1]
+    raise "Can't find photo dir" unless Dir.exists?(origin_dir)
+    raise "Please give a destination directory" unless destination_dir
+    raise "Please create destination destiny manually" unless Dir.exists?(destination_dir)
+    filenames = Dir.entries(origin_dir).select {|f| f.match(FILES_REGEX) }
+
+    @photos = filenames.map do |name|
+      name_without_extension = name.gsub(/#{File.extname(name)}$/, '')
+      extension = File.extname(name)
+
+      PhotoFile.new(origin_dir, name_without_extension, extension)
+    end
+  end
+
 end
 
 PhotoNamer.new.run
