@@ -65,9 +65,8 @@ class PhotoFile
 end
 
 class PhotoNamer
-  FILES_REGEX = /\.jpg$|\.mp4$|\.3gp$/
+  FILES_REGEX = /\.jpg$|\.JPG$|\.mp4$|\.3gp$/
   attr_reader :origin_dir, :destination_dir, :photos
-
 
   def run
     find_photos
@@ -107,7 +106,7 @@ class PhotoNamer
 
     @photos = filenames.map do |name|
       name_without_extension = name.gsub(/#{File.extname(name)}$/, '')
-      extension = File.extname(name)
+      extension = File.extname(name).downcase
 
       PhotoFile.new(origin_dir, name_without_extension, extension)
     end
