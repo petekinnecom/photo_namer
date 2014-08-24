@@ -4,7 +4,7 @@ require 'pry'
 class RenamerTest < Minitest::Test
   def test_it_all
     `rm ./test/results/* 2> /dev/null`
-    `ruby rename_photo_by_date.rb ./test/originals ./test/results`
+    `ruby photo_renamer.rb ./test/originals ./test/results`
 
     # original files are still the same
     originals = [".", "..", "another_image.jpg", "original.jpg", "original_copy_shouldnt_be_copied.jpg", "original_edited_should_have_counter_appended.jpg"]
