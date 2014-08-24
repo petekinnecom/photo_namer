@@ -68,10 +68,50 @@ class PhotoNamer
   FILES_REGEX = /\.jpg$|\.JPG$|\.mp4$|\.3gp$/
   attr_reader :origin_dir, :destination_dir, :photos
 
-  def run
-    find_photos
+  def initialize
+    @origin_dir = ARGV[0]
+    @destination_dir = ARGV[1]
 
+    raise "Can't find photo dir" unless Dir.exists?(origin_dir)
+    raise "Please give a destination directory" unless destination_dir
+    raise "Please create destination destiny manually" unless Dir.exists?(destination_dir)
+
+    @photos = find_photos
+  end
+
+  def run
     photos.each do |origin_photo|
+      PhotoCopier.process(origin_photo, origin_dir, destination_dir)
+    end
+  end
+
+  private
+
+  def find_photos
+    filenames = Dir.entries(origin_dir).select {|f| f.match(FILES_REGEX) }
+
+    filenames.map do |name|
+      name_without_extension = name.gsub(/#{File.extname(name)}$/, '')
+      extension = File.extname(name).downcase
+
+      PhotoFile.new(origin_dir, name_without_extension, extension)
+    end
+  end
+
+  class PhotoCopier
+
+    def self.process(photo, origin_dir, destination_dir)
+      new(photo, origin_dir, destination_dir).process
+    end
+
+    attr_reader :origin_photo, :origin_dir, :destination_dir
+    def initialize(photo, origin_dir, destination_dir)
+      @origin_photo = photo
+      @origin_dir = origin_dir
+      @destination_dir = destination_dir
+    end
+
+    def process
       begin
         destination_file = origin_photo.destination_file(destination_dir)
         copy(origin_photo.full_path, "#{destination_dir}/#{destination_file}")
@@ -83,35 +123,18 @@ class PhotoNamer
         puts "\nFile is already in destination #{origin_photo}. Not copying"
       end
     end
-  end
 
-  def copy(original_file, destination_file)
-    if File.exists?(destination_file) && FileUtils.compare_file(original_file, destination_file)
-      puts "\nFile is already in destination. Not copying : #{original_file}"
-    else
-      `cp '#{original_file}' '#{destination_file}'`
-      printf '.'
+    def copy(original_file, destination_file)
+      if File.exists?(destination_file) && FileUtils.compare_file(original_file, destination_file)
+        puts "\nFile is already in destination. Not copying : #{original_file}"
+      else
+        `cp '#{original_file}' '#{destination_file}'`
+        printf '.'
+      end
     end
+
+
   end
-
-  private
-
-  def find_photos
-    @origin_dir = ARGV[0]
-    @destination_dir = ARGV[1]
-    raise "Can't find photo dir" unless Dir.exists?(origin_dir)
-    raise "Please give a destination directory" unless destination_dir
-    raise "Please create destination destiny manually" unless Dir.exists?(destination_dir)
-    filenames = Dir.entries(origin_dir).select {|f| f.match(FILES_REGEX) }
-
-    @photos = filenames.map do |name|
-      name_without_extension = name.gsub(/#{File.extname(name)}$/, '')
-      extension = File.extname(name).downcase
-
-      PhotoFile.new(origin_dir, name_without_extension, extension)
-    end
-  end
-
 end
 
 PhotoNamer.new.run
