@@ -1,19 +1,18 @@
-require 'rubygems'
-require 'pry'
+require 'fileutils'
 
 class PhotoRenamer
   def self.run
     new.run
   end
 
-  FILES_REGEX = /\.jpg$|\.JPG$|\.mp4$|\.3gp$/
+  FILES_REGEX = /\.jpg$|\.mp4$|\.3gp$/i
 
-  attr_reader :origin_dir, :destination_dir
+  attr_reader :source_dir, :destination_dir
   def initialize
-    @origin_dir = ARGV[0].gsub(/\/$/, '')
+    @source_dir = ARGV[0].gsub(/\/$/, '')
     @destination_dir = ARGV[1].gsub(/\/$/, '')
 
-    raise "Can't find photo dir" unless Dir.exists?(origin_dir)
+    raise "Can't find photo dir" unless Dir.exists?(source_dir)
     raise "Please give a destination directory" unless destination_dir
     raise "Please create destination destiny manually" unless Dir.exists?(destination_dir)
   end
@@ -34,12 +33,12 @@ class PhotoRenamer
 
   def source_photos
     matching_filenames.map do |filename|
-      SourcePhoto.new(origin_dir, filename)
+      SourcePhoto.new(source_dir, filename)
     end
   end
 
   def matching_filenames
-    Dir.entries(origin_dir).select {|f| f.match(FILES_REGEX) }
+    Dir.entries(source_dir).select {|f| f.match(FILES_REGEX) }
   end
 
 end
@@ -58,12 +57,14 @@ class SourcePhoto
   end
 
   def datetime
-    datetime = exif_date_string.sub(/Create Date\s+:/, '').chomp.strip
-    date, time = datetime.split(/ /)
-    date.gsub!(':', '-')
-    time.gsub!(':', '.')
+    @datetime ||= begin
+      datetime = exif_date_string.sub(/Create Date\s+:/, '').chomp.strip
+      date, time = datetime.split(/ /)
+      date.gsub!(':', '-')
+      time.gsub!(':', '.')
 
-    "#{date} #{time}"
+      "#{date} #{time}"
+    end
   end
 
   def extension
