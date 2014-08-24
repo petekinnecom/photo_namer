@@ -11,7 +11,7 @@ class RenamerTest < Minitest::Test
     assert_equal originals, Dir.entries('test/originals')
 
     # results named as expected
-    results = [".", "..", "2012-06-10 23.13.22.jpg", "2013-03-03 17.45.32 2.jpg", "2013-03-03 17.45.32.jpg"]
+    results = [".", "..", ".gitkeep", "2012-06-10 23.13.22.jpg", "2013-03-03 17.45.32 2.jpg", "2013-03-03 17.45.32.jpg"]
     assert_equal results, Dir.entries('test/results')
   end
 
