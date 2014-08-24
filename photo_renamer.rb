@@ -10,8 +10,8 @@ class PhotoRenamer
 
   attr_reader :origin_dir, :destination_dir
   def initialize
-    @origin_dir = ARGV[0]
-    @destination_dir = ARGV[1]
+    @origin_dir = ARGV[0].gsub(/\/$/, '')
+    @destination_dir = ARGV[1].gsub(/\/$/, '')
 
     raise "Can't find photo dir" unless Dir.exists?(origin_dir)
     raise "Please give a destination directory" unless destination_dir
@@ -20,7 +20,13 @@ class PhotoRenamer
 
   def run
     source_photos.each do |source_photo|
-      PhotoCopier.process(source_photo, destination_dir)
+      begin
+        PhotoCopier.process(source_photo, destination_dir)
+      rescue Exception => e
+        puts "\nThere was an error while copying #{source_photo.full_path}:"
+        puts e.message
+        exit 1
+      end
     end
   end
 
@@ -28,7 +34,7 @@ class PhotoRenamer
 
   def source_photos
     matching_filenames.map do |filename|
-      SourcePhotoFile.new(origin_dir, filename)
+      SourcePhoto.new(origin_dir, filename)
     end
   end
 
@@ -38,7 +44,7 @@ class PhotoRenamer
 
 end
 
-class SourcePhotoFile
+class SourcePhoto
   SkippableFileError = Class.new(StandardError)
 
   attr_reader :directory, :filename
@@ -60,22 +66,22 @@ class SourcePhotoFile
     "#{date} #{time}"
   end
 
-  def exif_date_string
-    `exiftool -CreateDate #{full_path}`
-  end
-
   def extension
     File.extname(filename)
   end
+
+  private
+
+  def exif_date_string
+    `exiftool -CreateDate #{full_path}`
+  end
 end
 
-class DestinationFile
-  attr_reader :directory, :extension, :filename, :counter, :source_photo
+class RenamedPhoto
+  attr_reader :directory, :source_photo, :counter
 
   def initialize(directory, source_photo)
     @directory = directory
-    @extension = source_photo.extension
-    @filename = source_photo.datetime
     @source_photo = source_photo
     @counter = ''
   end
@@ -100,6 +106,13 @@ class DestinationFile
     File.exists?(full_path)
   end
 
+  def filename
+    source_photo.datetime
+  end
+
+  def extension
+    source_photo.extension
+  end
 end
 
 class PhotoCopier
@@ -109,22 +122,33 @@ class PhotoCopier
 
   attr_reader :renamed_photo, :source_photo
   def initialize(source_photo, destination_dir)
-    @renamed_photo = DestinationFile.new(destination_dir, source_photo)
     @source_photo = source_photo
+    @renamed_photo = RenamedPhoto.new(destination_dir, source_photo)
   end
 
   def process
-    if renamed_photo.binary_duplicate_exists?
-      puts "\nFile is already in destination: #{source_photo.filename}. Not copying"
-    else
-      while renamed_photo.name_taken?
-        renamed_photo.increment_counter
-        puts "\nFile: #{renamed_photo.filename} already exists.  Appending a counter."
-      end
-    end
+    return if nothing_to_copy_because_of_duplicate
+    increment_counter_if_necessary
+    copy_file
+  end
 
+  def nothing_to_copy_because_of_duplicate
+    if renamed_photo.binary_duplicate_exists?
+      puts "File is already in destination: #{source_photo.filename}. Not copying"
+      return true
+    end
+  end
+
+  def increment_counter_if_necessary
+    while renamed_photo.name_taken?
+      renamed_photo.increment_counter
+      puts "File: #{renamed_photo.filename} already exists.  Appending a counter."
+    end
+  end
+
+  def copy_file
     FileUtils.copy(source_photo.full_path, renamed_photo.full_path)
-    print '.'
+    puts "#{source_photo.full_path} --> #{renamed_photo.full_path}"
   end
 end
 
