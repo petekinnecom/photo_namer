@@ -7,5 +7,5 @@ The script is not destructive.  It copies the files rather than renaming them.
 Usage:
 
 ~~~bash
-ruby rename_photo_by_date.rb /path/to/input_folder/ /path/to/output_folder/
+ruby photo_renamer.rb /path/to/input_folder/ /path/to/output_folder/
 ~~~
