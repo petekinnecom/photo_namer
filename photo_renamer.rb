@@ -1,4 +1,5 @@
 require 'fileutils'
+require 'time'
 
 class PhotoRenamer
   def self.run
@@ -7,14 +8,19 @@ class PhotoRenamer
 
   FILES_REGEX = /\.jpg$|\.mp4$|\.3gp$/i
 
-  attr_reader :source_dir, :destination_dir
+  attr_reader :source_dir, :destination_dir, :failure_dir
   def initialize
     @source_dir = ARGV[0].gsub(/\/$/, '')
     @destination_dir = ARGV[1].gsub(/\/$/, '')
+    @failure_dir = ARGV[2].gsub(/\/$/, '')
 
     raise "Can't find photo dir" unless Dir.exists?(source_dir)
     raise "Please give a destination directory" unless destination_dir
-    raise "Please create destination destiny manually" unless Dir.exists?(destination_dir)
+    raise "Please create destination directory manually" unless Dir.exists?(destination_dir)
+
+    if failure_dir
+      raise "Please create failure directory manually" unless Dir.exists?(failure_dir)
+    end
   end
 
   def run
@@ -24,7 +30,12 @@ class PhotoRenamer
       rescue Exception => e
         puts "\nThere was an error while copying #{source_photo.full_path}:"
         puts e.message
-        exit 1
+        if failure_dir
+          FileUtils.copy(source_photo.full_path, "#{failure_dir}/#{source_photo.filename}")
+          puts "#{source_photo.full_path} --> #{failure_dir}/#{source_photo.filename}"
+        else
+          exit 1
+        end
       end
     end
   end
@@ -61,9 +72,9 @@ class SourcePhoto
       datetime = exif_date_string.sub(/Create Date\s+:/, '').chomp.strip
       date, time = datetime.split(/ /)
       date.gsub!(':', '-')
-      time.gsub!(':', '.')
+      timestamp = Time.parse("#{date} #{time}")
 
-      "#{date} #{time}"
+      timestamp.strftime("%Y-%m-%d %H.%M.%S")
     end
   end
 
