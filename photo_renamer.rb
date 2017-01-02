@@ -82,7 +82,7 @@ class SourcePhoto
   end
 
   def extension
-    File.extname(filename)
+    File.extname(filename).downcase
   end
 
   private
