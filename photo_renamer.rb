@@ -1,5 +1,6 @@
 require 'fileutils'
 require 'time'
+require 'shellwords'
 
 class PhotoRenamer
   def self.run
@@ -13,6 +14,8 @@ class PhotoRenamer
     @source_dir = ARGV[0].gsub(/\/$/, '')
     @destination_dir = ARGV[1].gsub(/\/$/, '')
     @failure_dir = ARGV[2].gsub(/\/$/, '')
+
+    ARGV.each_with_index {|a, i| puts "#{i}: #{a}"}
 
     raise "Can't find photo dir" unless Dir.exists?(source_dir)
     raise "Please give a destination directory" unless destination_dir
@@ -85,7 +88,7 @@ class SourcePhoto
   private
 
   def exif_date_string
-    `exiftool -CreateDate #{full_path}`
+    `exiftool -CreateDate #{Shellwords.escape(full_path)}`
   end
 end
 
