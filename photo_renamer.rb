@@ -7,7 +7,7 @@ class PhotoRenamer
     new.run
   end
 
-  FILES_REGEX = /\.jpg$|\.mp4$|\.3gp$/i
+  FILES_REGEX = /\.jpg$|\.mp4$|\.3gp$|\.jpeg$|\.mov$/i
 
   attr_reader :source_dir, :destination_dir, :failure_dir
   def initialize
@@ -126,7 +126,11 @@ class RenamedPhoto
   end
 
   def extension
-    source_photo.extension
+    if source_photo.extension == ".jpeg"
+      ".jpg"
+    else
+      source_photo.extension
+    end
   end
 end
 
